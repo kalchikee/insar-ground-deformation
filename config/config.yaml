@@ -1,0 +1,53 @@
+# InSAR Ground Deformation Mapping — Configuration
+
+study_region:
+  name: "Ridgecrest, California"
+  west: -118.5
+  east: -116.5
+  south: 34.5
+  north: 37.0
+
+licsar:
+  frame_id: "064A_12621_131313"
+  track: 64
+  geometry: ascending
+  portal_url: "https://comet.nerc.ac.uk/comet-lics-portal/"
+  max_interferograms: 20
+
+sentinel1:
+  wavelength_m: 0.05546576
+  incidence_angle_deg: 34.5
+  heading_deg: -12.0
+  look_direction: right
+
+processing:
+  coherence_threshold: 0.30
+  phase_filter_alpha: 0.5
+  unwrapping_method: "SNAPHU"
+
+time_series:
+  model: "linear_seasonal"
+  min_acquisitions: 6
+  reference_epoch: "2019-07-01"
+
+gnss:
+  stations:
+    - BBRY
+    - CCA1
+    - CRBT
+    - DAM1
+    - IMPS
+    - LDSV
+    - MOJA
+    - NVAG
+    - RAIL
+    - RDMT
+  reference_frame: "NA12"
+  unavco_api: "https://gage-data.unavco.org/ws/metadata/site"
+
+paths:
+  data_dir: "data"
+  licsar_dir: "data/licsar"
+  processed_dir: "data/processed"
+  gnss_dir: "data/gnss"
+  results_dir: "results"

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+env/
+.env
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data (large SAR files not tracked)
+data/licsar/*.tif
+data/processed/*.tif
+data/*.zip
+data/gnss/*.gpkg
+data/*.gpkg
+
+# Results (generated)
+results/*.tif
+results/*.png
+results/*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
