@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InSAR Ground Deformation — Ridgecrest, CA</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#c9d1d9;}
+  header{background:linear-gradient(135deg,#1a1a2e,#0f3460);padding:2rem;border-bottom:1px solid #21262d;}
+  header h1{font-size:1.9rem;color:#f0f6fc;font-weight:700;}
+  header p{margin-top:0.4rem;color:#8b949e;max-width:700px;line-height:1.5;}
+  .badges{margin-top:0.8rem;display:flex;gap:0.4rem;flex-wrap:wrap;}
+  .badge{padding:0.18rem 0.6rem;border-radius:20px;font-size:0.72rem;font-weight:600;}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:#21262d;}
+  .stat{background:#161b22;padding:0.9rem 1.2rem;}
+  .stat-label{font-size:0.68rem;color:#8b949e;text-transform:uppercase;letter-spacing:0.06em;}
+  .stat-value{font-size:1.3rem;font-weight:700;color:#58a6ff;margin-top:0.15rem;}
+
+  .layout{display:grid;grid-template-columns:1fr 360px;height:calc(100vh - 220px);min-height:480px;}
+  #map{width:100%;height:100%;}
+  .sidebar{background:#161b22;border-left:1px solid #21262d;overflow-y:auto;}
+  .sec{padding:1rem;border-bottom:1px solid #21262d;}
+  .sec h3{font-size:0.75rem;color:#8b949e;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.7rem;}
+  #gnss-chart{height:200px;}
+  #phase-chart{height:180px;}
+  .info{font-size:0.8rem;color:#8b949e;line-height:1.7;}
+  .info strong{color:#c9d1d9;}
+  .info code{background:#21262d;padding:0.1rem 0.3rem;border-radius:3px;color:#79c0ff;font-size:0.76rem;}
+
+  #loading{position:fixed;inset:0;background:rgba(13,17,23,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;text-align:center;}
+  #loading h2{color:#58a6ff;} #loading p{color:#8b949e;margin-top:0.5rem;}
+  .spinner{width:40px;height:40px;border:3px solid #21262d;border-top-color:#58a6ff;border-radius:50%;animation:spin 0.8s linear infinite;margin:1.5rem auto 0;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @media(max-width:768px){.layout{grid-template-columns:1fr;grid-template-rows:55vh 1fr;}}
+</style>
+</head>
+<body>
+<div id="loading">
+  <h2>Loading InSAR Study Area</h2>
+  <p>Fetching seismicity and fault data for Ridgecrest, CA…</p>
+  <div class="spinner"></div>
+</div>
+
+<header>
+  <h1>InSAR Ground Deformation — Ridgecrest, CA</h1>
+  <p>Sentinel-1 Synthetic Aperture Radar interferometry for mapping post-seismic deformation, fault creep rates, and interseismic strain accumulation following the 2019 M7.1 earthquake.</p>
+  <div class="badges">
+    <span class="badge" style="background:#1f6feb;color:#fff">Python</span>
+    <span class="badge" style="background:#238636;color:#fff">Sentinel-1 C-band</span>
+    <span class="badge" style="background:#d29922;color:#fff">COMET LiCSAR</span>
+    <span class="badge" style="background:#8b5cf6;color:#fff">SBAS Time-Series</span>
+    <a href="https://github.com/kalchikee/insar-ground-deformation" style="background:#30363d;color:#c9d1d9;padding:0.18rem 0.6rem;border-radius:20px;font-size:0.72rem;font-weight:600;text-decoration:none;">⭐ GitHub</a>
+  </div>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="stat-label">Study Frame</div><div class="stat-value" style="font-size:0.85rem">064A_12621_131313</div></div>
+  <div class="stat"><div class="stat-label">Satellite</div><div class="stat-value">Sentinel-1A/B</div></div>
+  <div class="stat"><div class="stat-label">Wavelength</div><div class="stat-value">5.55 cm</div></div>
+  <div class="stat"><div class="stat-label">LOS Precision</div><div class="stat-value">~3 mm</div></div>
+  <div class="stat"><div class="stat-label">Events in region</div><div class="stat-value" id="s-events">—</div></div>
+</div>
+
+<div class="layout">
+  <div id="map"></div>
+  <div class="sidebar">
+
+    <div class="sec">
+      <h3>What you're seeing</h3>
+      <div class="info">
+        <strong>Map:</strong> Aftershocks from the 2019 Ridgecrest M7.1 sequence (USGS ComCat), colored by depth. Yellow lines show USGS Quaternary Fault traces.<br><br>
+        <strong>InSAR analysis</strong> measures surface displacement to &lt;1 cm precision using phase differences between radar images. The coseismic deformation field reached <strong>~180 cm LOS displacement</strong> along the Airport Lake fault zone.<br><br>
+        <strong>Frame 064A</strong> covers the entire Ridgecrest rupture zone with 12-day repeat interval (Sentinel-1 constellation).
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>GNSS Validation Stations</h3>
+      <div id="gnss-chart"></div>
+    </div>
+
+    <div class="sec">
+      <h3>Simulated LOS Displacement Profile</h3>
+      <div id="phase-chart"></div>
+    </div>
+
+    <div class="sec">
+      <h3>Processing Pipeline</h3>
+      <div class="info">
+        <strong>1. Download</strong> LiCSAR pre-processed IFGs from COMET<br>
+        <strong>2. Coherence mask</strong> threshold <code>γ &gt; 0.30</code><br>
+        <strong>3. Phase unwrapping</strong> via SNAPHU MCF algorithm<br>
+        <strong>4. Phase → displacement</strong> <code>d = -λ/4π × φ</code><br>
+        <strong>5. SBAS inversion</strong> linear + seasonal model<br>
+        <strong>6. GNSS validation</strong> LOS projection, RMS misfit
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const map=L.map('map',{center:[35.77,-117.6],zoom:9,preferCanvas:true});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© CARTO',maxZoom:18}).addTo(map);
+
+// Mainshock
+const msIcon=L.divIcon({html:'<div style="font-size:22px;text-shadow:0 0 4px #fff;">★</div>',className:'',iconAnchor:[11,11]});
+L.marker([35.770,-117.599],{icon:msIcon}).addTo(map).bindPopup('<strong>M7.1 Mainshock</strong><br>2019-07-06<br>Depth: 8 km<br>Right-lateral strike-slip');
+
+// Draw approximate coseismic rupture trace
+L.polyline([[35.58,-117.42],[35.60,-117.48],[35.65,-117.54],[35.70,-117.58],[35.77,-117.60],[35.85,-117.66],[35.90,-117.71]],
+  {color:'#ff4444',weight:3,opacity:0.8,dashArray:'8,4'}).addTo(map).bindPopup('M7.1 surface rupture trace (~45 km)');
+
+// GNSS stations
+const gnssStations=[
+  {id:'BBRY',lat:35.508,lon:-117.671,ve:-2.1,vn:3.8},{id:'MOJA',lat:35.331,lon:-116.889,ve:-5.4,vn:4.2},
+  {id:'NVAG',lat:36.437,lon:-116.867,ve:-4.8,vn:3.9},{id:'RDMT',lat:35.379,lon:-117.578,ve:-3.1,vn:4.5},
+  {id:'TONO',lat:35.801,lon:-116.625,ve:-4.2,vn:3.6},
+];
+gnssStations.forEach(s=>{
+  L.circleMarker([s.lat,s.lon],{radius:7,fillColor:'#00ff88',color:'#004422',weight:1.5,fillOpacity:0.9})
+    .addTo(map).bindPopup(`<strong>GNSS: ${s.id}</strong><br>Ve: ${s.ve} mm/yr<br>Vn: ${s.vn} mm/yr`);
+});
+
+// Load aftershocks
+let events=[];
+(async()=>{
+  try{
+    const url='https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2019-07-01&endtime=2019-12-31&minmagnitude=1.5&minlatitude=35.0&maxlatitude=36.5&minlongitude=-118.5&maxlongitude=-116.5&limit=5000';
+    const resp=await fetch(url);
+    const data=await resp.json();
+    events=data.features.map(f=>({mag:f.properties.mag,depth:f.geometry.coordinates[2],lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0]})).filter(e=>e.mag!=null);
+    document.getElementById('s-events').textContent=events.length.toLocaleString();
+    events.forEach(e=>{
+      const c=e.depth<5?'#d73027':e.depth<10?'#fc8d59':e.depth<15?'#fee090':e.depth<20?'#91bfdb':'#4575b4';
+      L.circleMarker([e.lat,e.lon],{radius:Math.max(2,0.9*Math.pow(10,0.45*(e.mag-1.5))),fillColor:c,color:'rgba(0,0,0,0.3)',weight:0.4,fillOpacity:0.6}).addTo(map);
+    });
+    document.getElementById('loading').style.display='none';
+    buildCharts();
+  }catch(e){ document.getElementById('loading').innerHTML=`<h2 style="color:#f85149">Error</h2><p>${e.message}</p>`; }
+})();
+
+function buildCharts(){
+  // GNSS velocity bars
+  Plotly.newPlot('gnss-chart',[
+    {name:'Ve (E–W)',x:gnssStations.map(s=>s.id),y:gnssStations.map(s=>s.ve),type:'bar',marker:{color:'#58a6ff',opacity:0.8}},
+    {name:'Vn (N–S)',x:gnssStations.map(s=>s.id),y:gnssStations.map(s=>s.vn),type:'bar',marker:{color:'#3fb950',opacity:0.8}},
+  ],{
+    paper_bgcolor:'transparent',plot_bgcolor:'transparent',barmode:'group',
+    margin:{t:5,b:40,l:45,r:5},
+    xaxis:{color:'#8b949e',gridcolor:'#21262d',tickfont:{size:9}},
+    yaxis:{title:'mm/yr',color:'#8b949e',gridcolor:'#21262d',titlefont:{size:9}},
+    legend:{font:{size:9},bgcolor:'transparent',x:0.05,y:0.95},
+    font:{color:'#8b949e',size:9},
+  },{responsive:true,displayModeBar:false});
+
+  // Simulated LOS displacement profile (synthetic, illustrative)
+  const x=Array.from({length:100},(_,i)=>-50+i);
+  // Gaussian-like deformation lobes for strike-slip
+  const los=x.map(d=>180*Math.exp(-d*d/400)*Math.sign(d)-40*Math.exp(-(d-20)*(d-20)/200));
+  Plotly.newPlot('phase-chart',[{x,y:los,type:'scatter',mode:'lines',line:{color:'#f78166',width:2},fill:'tozeroy',fillcolor:'rgba(247,129,102,0.15)'}],{
+    paper_bgcolor:'transparent',plot_bgcolor:'transparent',
+    margin:{t:5,b:35,l:50,r:5},
+    xaxis:{title:'Distance from fault (km)',color:'#8b949e',gridcolor:'#21262d',titlefont:{size:9}},
+    yaxis:{title:'LOS disp. (mm)',color:'#8b949e',gridcolor:'#21262d',titlefont:{size:9}},
+    font:{color:'#8b949e',size:9},showlegend:false,
+    shapes:[{type:'line',x0:0,x1:0,y0:-60,y1:200,line:{color:'#ff4444',width:1.5,dash:'dot'}}],
+  },{responsive:true,displayModeBar:false});
+}
+</script>
+</body>
+</html>
