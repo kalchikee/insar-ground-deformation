@@ -138,7 +138,7 @@ let events=[];
     document.getElementById('s-events').textContent=events.length.toLocaleString();
     events.forEach(e=>{
       const c=e.depth<5?'#d73027':e.depth<10?'#fc8d59':e.depth<15?'#fee090':e.depth<20?'#91bfdb':'#4575b4';
-      L.circleMarker([e.lat,e.lon],{radius:Math.max(2,0.9*Math.pow(10,0.45*(e.mag-1.5))),fillColor:c,color:'rgba(0,0,0,0.3)',weight:0.4,fillOpacity:0.6}).addTo(map);
+      L.circleMarker([e.lat,e.lon],{radius:Math.max(2,2*Math.pow(1.65,e.mag-2)),fillColor:c,color:'rgba(0,0,0,0.3)',weight:0.4,fillOpacity:0.6}).addTo(map);
     });
     document.getElementById('loading').style.display='none';
     buildCharts();
